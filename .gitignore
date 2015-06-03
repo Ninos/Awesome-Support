@@ -59,3 +59,7 @@ prepros.cfg
 ### Custom ###
 /logs
 /node_modules
+
+.idea
+### NetBeans ###
+/nbproject/private/

@@ -27,7 +27,7 @@ function wpas_core_settings_general( $def ) {
 					'id'      => 'assignee_default',
 					'type'    => 'select',
 					'desc'    => __( 'Who to assign tickets to by default (if auto-assignment is enabled, this will only be used in case an assignment rule is incorrect).', 'wpas' ),
-					'options' => wpas_list_users( 'edit_ticket' ),
+					'options' => isset( $_GET['post_type'] ) && 'ticket' === $_GET['post_type'] && isset( $_GET['page'] ) && 'settings' === $_GET['page'] ? wpas_list_users( 'edit_ticket' ) : array(),
 					'default' => ''
 				),
 				array(
@@ -41,7 +41,7 @@ function wpas_core_settings_general( $def ) {
 					'name'    => __( 'Replies Order', 'wpas' ),
 					'id'      => 'replies_order',
 					'type'    => 'radio',
-					'desc'    => __( 'In which order should the replie be displayed (for both client and admin side)?', 'wpas' ),
+					'desc'    => __( 'In which order should the replies be displayed (for both client and admin side)?', 'wpas' ),
 					'options' => array( 'ASC' => __( 'Old to New', 'wpas' ), 'DESC' => __( 'New to Old', 'wpas' ) ),
 					'default' => 'ASC'
 				),
@@ -97,6 +97,17 @@ function wpas_core_settings_general( $def ) {
 					'default'  => '',
 					'desc'     => __( 'Terms & conditions are not mandatory. If you add terms, a mendatory checkbox will be added in the registration form. Users won\'t be able to register if they don\'t accept your terms', 'wpas' ),
 					'settings' => array( 'quicktags' => true, 'textarea_rows' => 7 )
+				),
+				array(
+					'name' => __( 'Credit', 'wpas' ),
+					'type' => 'heading',
+				),
+				array(
+					'name'    => __( 'Show Credit', 'wpas' ),
+					'id'      => 'credit_link',
+					'type'    => 'checkbox',
+					'desc'    => __( 'You like the plugin? Please help us spread the word by displaying a credit link at the bottom of your ticket submission page.', 'wpas' ),
+					'default' => false
 				),
 			)
 		),

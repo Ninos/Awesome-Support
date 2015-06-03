@@ -8,29 +8,13 @@
  */
 function wpas_open_ticket( $data ) {
 
-	$title   = isset( $data['wpas_title'] ) ? wp_strip_all_tags( $data['wpas_title'] ) : false;
-	$content = isset( $data['wpas_message'] ) ? wp_kses( $data['wpas_message'], wp_kses_allowed_html( 'post' ) ) : false;
+	$title   = isset( $data['title'] ) ? wp_strip_all_tags( $data['title'] ) : false;
+	$content = isset( $data['message'] ) ? wp_kses( $data['message'], wp_kses_allowed_html( 'post' ) ) : false;
 
 	/**
 	 * Prepare vars
 	 */
-	$errors  = array();                            // Error messages to display
-	$notify  = array();                            // Notifications to trigger
-	$missing = array();                            // Missing fields in the form
 	$submit  = wpas_get_option( 'ticket_submit' ); // ID of the submission page
-
-	// Verify the nonce first
-	if ( !isset( $data['wpas_nonce'] ) || !wp_verify_nonce( $data['wpas_nonce'], 'new_ticket' ) ) {
-
-		// Save the input
-		wpas_save_values();
-
-		// Redirect to submit page
-		wp_redirect( add_query_arg( array( 'message' => 4 ), get_permalink( $submit ) ) );
-
-		// Break
-		exit;
-	}
 
 	// Verify user capability
 	if ( !current_user_can( 'create_ticket' ) ) {
@@ -102,12 +86,11 @@ function wpas_open_ticket( $data ) {
 	/**
 	 * Gather current user info
 	 */
-	if( is_user_logged_in() ) {
+	if ( is_user_logged_in() ) {
 
 		global $current_user;
 
-		$user_id	= $current_user->ID;
-		$user_name 	= $current_user->data->user_nicename;
+		$user_id = $current_user->ID;
 
 	} else {
 
@@ -145,7 +128,7 @@ function wpas_open_ticket( $data ) {
 
 function wpas_insert_ticket( $data = array(), $post_id = false, $agent_id = false ) {
 
-	if ( !current_user_can( 'create_ticket' ) ) {
+	if ( ! current_user_can( 'create_ticket' ) ) {
 		return false;
 	}
 
@@ -182,8 +165,12 @@ function wpas_insert_ticket( $data = array(), $post_id = false, $agent_id = fals
 	$data = wp_parse_args( $data, $defaults );
 
 	/* Sanitize the data */
-	if ( isset( $data['post_title'] ) && !empty( $data['post_title'] ) ) {
+	if ( isset( $data['post_title'] ) && ! empty( $data['post_title'] ) ) {
 		$data['post_title'] = wp_strip_all_tags( $data['post_title'] );
+	}
+
+	if ( ! empty( $data['post_content'] ) ) {
+		$data['post_content'] = strip_shortcodes( $data['post_content'] );
 	}
 
 	/**
@@ -261,9 +248,16 @@ function wpas_insert_ticket( $data = array(), $post_id = false, $agent_id = fals
  */
 function get_tickets( $status = 'open', $args = array() ) {
 
+	$post_status       = wpas_get_post_status();
+	$post_status_clean = array();
+
+	foreach ( $post_status as $status_id => $status_label ) {
+		$post_status_clean[] = $status_id;
+	}
+
 	$defaults = array(
 		'post_type'              => 'ticket',
-		'post_status'            => wpas_get_post_status(),
+		'post_status'            => $post_status_clean,
 		'posts_per_page'         => -1,
 		'no_found_rows'          => false,
 		'cache_results'          => true,
@@ -294,12 +288,14 @@ function get_tickets( $status = 'open', $args = array() ) {
 
 /**
  * Add a new reply to a ticket.
- * 
- * @return void
+ *
+ * @param array           $data      The reply data to insert
+ * @param boolean|integer $parent_id ID of the parent ticket (post)
+ * @param boolean|integer $author_id The ID of the reply author (false if none)
+ *
+ * @return boolean|integer False on failure or reply ID on success
  */
 function wpas_add_reply( $data, $parent_id = false, $author_id = false ) {
-
-	global $current_user;
 
 	if ( false === $parent_id ) {
 
@@ -523,11 +519,15 @@ function wpas_insert_reply( $data, $post_id = false ) {
 	$data = apply_filters( 'wpas_add_reply_data', $data, $post_id );
 
 	/* Sanitize the data */
-	if ( isset( $data['post_title'] ) && !empty( $data['post_title'] ) ) {
+	if ( isset( $data['post_title'] ) && ! empty( $data['post_title'] ) ) {
 		$data['post_title'] = wp_strip_all_tags( $data['post_title'] );
 	}
 
-	if ( isset( $data['post_name'] ) && !empty( $data['post_name'] ) ) {
+	if ( ! empty( $data['post_content'] ) ) {
+		$data['post_content'] = strip_shortcodes( $data['post_content'] );
+	}
+
+	if ( isset( $data['post_name'] ) && ! empty( $data['post_name'] ) ) {
 		$data['post_name'] = sanitize_title( $data['post_name'] );
 	}
 
@@ -535,8 +535,8 @@ function wpas_insert_reply( $data, $post_id = false ) {
 	 * Fire wpas_add_reply_before before the reply is added to the database.
 	 * This hook is fired both on the back-end and the front-end.
 	 *
-	 * @param  $data    The data to be inserted to the database
-	 * @param  $post_id ID of the parent post
+	 * @param  array   $data    The data to be inserted to the database
+	 * @param  integer $post_id ID of the parent post
 	 */
 	do_action( 'wpas_add_reply_before', $data, $post_id );
 
@@ -546,8 +546,8 @@ function wpas_insert_reply( $data, $post_id = false ) {
 		 * Fired right before the data is added to the database on the back-end only.
 		 *
 		 * @since  3.1.2
-		 * @param  $data    The data to be inserted to the database
-		 * @param  $post_id ID of the parent post
+		 * @param  array   $data    The data to be inserted to the database
+		 * @param  integer $post_id ID of the parent post
 		 */
 		do_action( 'wpas_add_reply_admin_before', $data, $post_id );
 
@@ -567,8 +567,8 @@ function wpas_insert_reply( $data, $post_id = false ) {
 		 * Fired right before the data is added to the database on the front-end only.
 		 *
 		 * @since  3.1.2
-		 * @param  $data    The data to be inserted to the database
-		 * @param  $post_id ID of the parent post
+		 * @param  array   $data    The data to be inserted to the database
+		 * @param  integer $post_id ID of the parent post
 		 */
 		do_action( 'wpas_add_reply_public_before', $data, $post_id );
 
@@ -643,8 +643,8 @@ function wpas_insert_reply( $data, $post_id = false ) {
 		 * Fired right after the data is added to the database on the back-end only.
 		 *
 		 * @since  3.1.2
-		 * @param  $reply_id ID of the reply added to the database
-		 * @param  $data     Data inserted to the database
+		 * @param  integer $reply_id ID of the reply added to the database
+		 * @param  array   $data     Data inserted to the database
 		 */
 		do_action( 'wpas_add_reply_admin_after', $reply_id, $data );
 
@@ -655,8 +655,8 @@ function wpas_insert_reply( $data, $post_id = false ) {
 		 * You should now use wpas_add_reply_admin_after instead.
 		 *
 		 * @deprecated  3.1.2
-		 * @param  $reply Reply ID
-		 * @param  $data  Data used to add the reply
+		 * @param  integer $reply Reply ID
+		 * @param  array   $data  Data used to add the reply
 		 */
 		do_action( 'wpas_save_reply_after', $reply_id, $data );
 
@@ -666,8 +666,8 @@ function wpas_insert_reply( $data, $post_id = false ) {
 		 * Fired right after the data is added to the database on the front-end only.
 		 *
 		 * @since  3.1.2
-		 * @param  $reply_id ID of the reply added to the database
-		 * @param  $data     Data inserted to the database
+		 * @param  integer $reply_id ID of the reply added to the database
+		 * @param  array   $data     Data inserted to the database
 		 */
 		do_action( 'wpas_add_reply_public_after', $reply_id, $data );
 
@@ -721,7 +721,9 @@ function wpas_get_replies( $post_id, $status = 'any', $args = array() ) {
  * with the less tickets currently open.
  *
  * @since  3.0.0
- * @param  integer $ticket The ticket that needs an agent
+ *
+ * @param  boolean|integer $ticket_id The ticket that needs an agent
+ *
  * @return integer         ID of the best agent for the job
  */
 function wpas_find_agent( $ticket_id = false ) {
@@ -730,50 +732,46 @@ function wpas_find_agent( $ticket_id = false ) {
 		return apply_filters( 'wpas_find_available_agent', wpas_get_option( 'assignee_default' ), $ticket_id );
 	}
 
-	$users = get_users( array( 'orderby' => 'wpas_random' ) ); // We use a unique and non-existing orderby parameter so that we can identify the query in pre_user_query
+	$users = shuffle_assoc( wpas_get_users( array( 'cap' => 'edit_ticket' ) ) );
 	$agent = array();
 
 	foreach ( $users as $user ) {
 
-		if ( array_key_exists( 'edit_ticket', $user->allcaps ) ) {
+		$posts_args = array(
+			'post_type'              => 'ticket',
+			'post_status'            => 'any',
+			'posts_per_page'         => - 1,
+			'no_found_rows'          => true,
+			'cache_results'          => false,
+			'update_post_term_cache' => false,
+			'update_post_meta_cache' => false,
+			'meta_query'             => array(
+				array(
+					'key'     => '_wpas_status',
+					'value'   => 'open',
+					'type'    => 'CHAR',
+					'compare' => '='
+				),
+				array(
+					'key'     => '_wpas_assignee',
+					'value'   => $user->ID,
+					'type'    => 'NUMERIC',
+					'compare' => '='
+				),
+			)
+		);
 
-			$posts_args = array(
-				'post_type'              => 'ticket',
-				'post_status'            => 'any',
-				'posts_per_page'         => -1,
-				'no_found_rows'          => true,
-				'cache_results'          => false,
-				'update_post_term_cache' => false,
-				'update_post_meta_cache' => false,
-				'meta_query'             => array(
-					array(
-						'key'     => '_wpas_status',
-						'value'   => 'open',
-						'type'    => 'CHAR',
-						'compare' => '='
-					),
-					array(
-						'key'     => '_wpas_assignee',
-						'value'   => $user->ID,
-						'type'    => 'NUMERIC',
-						'compare' => '='
-					),
-				)
-			);
+		$open_tickets = new WP_Query( $posts_args );
+		$count        = count( $open_tickets->posts ); // Total number of open tickets for this agent
 
-			$open_tickets = new WP_Query( $posts_args );
-			$count        = count( $open_tickets->posts ); // Total number of open tickets for this agent
+		if ( empty( $agent ) ) {
+			$agent = array( 'tickets' => $count, 'user_id' => $user->ID );
+		} else {
 
-			if ( empty( $agent ) ) {
+			if ( $count < $agent['tickets'] ) {
 				$agent = array( 'tickets' => $count, 'user_id' => $user->ID );
-			} else {
-
-				if ( $count < $agent['tickets'] ) {
-					$agent = array( 'tickets' => $count, 'user_id' => $user->ID );
-				}
-
 			}
-			
+
 		}
 
 	}
@@ -805,7 +803,7 @@ function wpas_assign_ticket( $ticket_id, $agent_id = null, $log = true ) {
 	}
 
 	if ( !user_can( $agent_id, 'edit_ticket' ) ) {
-		return new WP_Error( 'incorrect_agent', __( 'The chosen agent does not have the sufficient capapbilities to be assigned a ticket', 'wpas' ) );
+		return new WP_Error( 'incorrect_agent', __( 'The chosen agent does not have the sufficient capabilities to be assigned a ticket', 'wpas' ) );
 	}
 
 	/* Get the current agent if any */
@@ -948,6 +946,10 @@ function wpas_close_ticket( $ticket_id ) {
 
 	global $current_user;
 
+	if ( ! current_user_can( 'close_ticket' ) ) {
+		wp_die( __( 'You do not have the capacity to close this ticket', 'wpas' ), __( 'Can&#39;t closr ticket', 'wpas' ), array( 'back_link' => true ) );
+	}
+
 	$ticket_id = intval( $ticket_id );
 
 	if ( 'ticket' == get_post_type( $ticket_id ) ) {
@@ -1064,9 +1066,8 @@ function wpas_edit_reply_editor_ajax() {
 		'textarea_rows' => 20
 	);
 
-	$editor = wp_editor( $editor_content, $editor_id, $settings );
-
-	echo $editor;
+	wp_editor( $editor_content, $editor_id, $settings );
+	
 	die();
 
 }

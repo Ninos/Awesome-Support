@@ -5,7 +5,7 @@
  * This class is a helper that will generate a notification
  * message for the user, including the message and markup.
  *
- * The notificaiton message can be passed in 3 different ways:
+ * The notification message can be passed in 3 different ways:
  * using the pre-defined messages, by passing the message directly to this class,
  * or by using a base64 encoded message (useful for passing it as a URL var).
  *
@@ -40,7 +40,7 @@ class WPAS_Notification {
 
 	public function __construct( $case = false, $message = false ) {
 
-		if ( false === $message && isset( $_REQUEST['message'] ) ) {
+		if ( empty( $message ) && isset( $_REQUEST['message'] ) ) {
 			$message = $_REQUEST['message'];
 		}
 
@@ -71,9 +71,9 @@ class WPAS_Notification {
 					 */
 					if ( is_numeric( $message ) && $this->predefined_exists( $message ) ) {
 						$predefined    = $this->get_predefined_messages();
-						$this->case    = esc_atts( $predefined[$message]['case'] );
-						$this->message = esc_atts( $predefined[$message]['message'] );
-					} 
+						$this->case    = esc_attr( $predefined[$message]['case'] );
+						$this->message = esc_attr( $predefined[$message]['message'] );
+					}
 
 					/**
 					 * If the $message var is a string we assume it is the actual message.
@@ -167,7 +167,7 @@ class WPAS_Notification {
 	public function template() {
 
 		$case    = $this->case;
-		$message = htmlspecialchars_decode( $this->message );
+		$message = wp_kses_post( htmlspecialchars_decode( $this->message ) );
 
 		switch( $case ):
 
@@ -229,25 +229,24 @@ class WPAS_Notification {
  *
  * This function returns a notification either
  * predefined or customized by the user.
- * 
- * @param  (string)  $case    Type of notification
- * @param  (string)  $message Message to display
- * @param  (boolean) $echo    Wether to echo or return the notification
- * @return (string)           Notification (with markup)
+ *
+ * @param  string         $case    Type of notification
+ * @param  boolean|string $message Message to display
+ * @param  boolean        $echo    Whether to echo or return the notification
+ *
+ * @return string           Notification (with markup)
  * @see    WPAS_Notification
  * @since  3.0.0
  */
-function wpas_notification( $case = false, $message = false, $echo = true ) {
+function wpas_notification( $case, $message = '', $echo = true ) {
 
 	$notification = new WPAS_Notification( $case, $message );
 
-	if( true === $echo ) {
+	if ( true === $echo ) {
 		echo $notification->notify();
 	}
 
-	else {
-		return $notification->notify();
-	}
+	return $notification->notify();
 
 }
 
